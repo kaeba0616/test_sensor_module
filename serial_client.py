@@ -18,8 +18,8 @@ def find_sensor_port():
 
 
 class SerialClient:
-    def __init__(self, port, baud=9600):
-        self.ser = serial.Serial(port, baud, timeout=1)
+    def __init__(self, port, baud=9600, timeout=3):
+        self.ser = serial.Serial(port, baud, timeout=timeout)
 
     def send(self, msg):
         self.ser.write(f"{msg}\n".encode())
