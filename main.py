@@ -3,13 +3,19 @@ from pathlib import Path
 
 import requests
 
-from serial_client import SerialClient, find_sensor_port
+from serial_client import SerialClient, find_soil_sensor_port, find_env_sensor_port
 from camera import capture_image, get_test_image
 
-PORT = find_sensor_port()
-if not PORT:
-    print("센서를 찾을 수 없습니다. USB 연결을 확인하세요.")
+PORT_SOIL = find_soil_sensor_port()
+PORT_ENV = find_env_sensor_port()
+
+if not PORT_SOIL:
+    print("토양 센서를 찾을 수 없습니다. USB 연결을 확인하세요.")
+if not PORT_ENV:
+    print("환경 센서를 찾을 수 없습니다. USB 연결을 확인하세요.")
+if not PORT_SOIL and not PORT_ENV:
     exit(1)
+
 BAUD = 9600
 CAM_INDEX = 1
 TEST_MODE = True  # 테스트 시 True (strawberry.jpg 사용), 실제 운영 시 False (카메라 사용)
@@ -136,9 +142,12 @@ def upload_env_observation(env_data: dict, image_path: str) -> dict:
 
 
 def main():
-    sc = SerialClient(PORT, BAUD)
+    sc_soil = SerialClient(PORT_SOIL, BAUD) if PORT_SOIL else None
+    sc_env = SerialClient(PORT_ENV, BAUD) if PORT_ENV else None
+
     print("Ready. Type A (토양) or B (환경) then Enter. (Ctrl+C to exit)")
-    print(f"- Serial: {PORT}@{BAUD}")
+    print(f"- 토양 센서 (A): {PORT_SOIL or '미연결'}@{BAUD}")
+    print(f"- 환경 센서 (B): {PORT_ENV or '미연결'}@{BAUD}")
     print(f"- Test mode: {TEST_MODE} {'(strawberry.jpg 사용)' if TEST_MODE else '(카메라 사용)'}")
     print(f"- Camera index: {CAM_INDEX}")
     print(f"- Server (A/토양): {SERVER_URL_SOIL}")
@@ -157,10 +166,19 @@ def main():
                 print("Type A (토양센서) or B (환경센서)")
                 continue
 
+            # 센서 연결 확인
+            if cmd == "A" and not sc_soil:
+                print("[ERROR] 토양 센서가 연결되지 않았습니다.\n")
+                continue
+            if cmd == "B" and not sc_env:
+                print("[ERROR] 환경 센서가 연결되지 않았습니다.\n")
+                continue
+
             ts = int(time.time())
             device_id = "farm-01"
 
-            # 1) 센서 요청
+            # 1) 센서 요청 (각 센서별 포트 사용)
+            sc = sc_soil if cmd == "A" else sc_env
             sc.send(cmd)
             line = sc.receive()
 
@@ -219,7 +237,10 @@ def main():
             print()  # 줄바꿈
 
     finally:
-        sc.close()
+        if sc_soil:
+            sc_soil.close()
+        if sc_env:
+            sc_env.close()
         print("[INFO] Serial closed")
 
 
