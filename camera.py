@@ -1,4 +1,5 @@
 from pathlib import Path
+import shutil
 import time
 import cv2
 
@@ -29,3 +30,13 @@ def capture_image(filename: str, cam_index: int = 1, warmup_frames: int = 5) -> 
         raise RuntimeError(f"Failed to write image: {path}")
 
     return str(path)
+
+
+def get_test_image(filename: str, source: str = "strawberry.jpg") -> str:
+    """테스트용: 기존 이미지 파일을 복사하여 사용"""
+    source_path = Path(source)
+    if not source_path.exists():
+        raise FileNotFoundError(f"Test image not found: {source}")
+    dest_path = IMAGE_DIR / filename
+    shutil.copy(source_path, dest_path)
+    return str(dest_path)

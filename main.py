@@ -4,7 +4,7 @@ from pathlib import Path
 import requests
 
 from serial_client import SerialClient, find_sensor_port
-from camera import capture_image
+from camera import capture_image, get_test_image
 
 PORT = find_sensor_port()
 if not PORT:
@@ -12,6 +12,7 @@ if not PORT:
     exit(1)
 BAUD = 9600
 CAM_INDEX = 1
+TEST_MODE = True  # 테스트 시 True (strawberry.jpg 사용), 실제 운영 시 False (카메라 사용)
 
 # 서버 URL (A: 토양센서, B: 환경센서)
 SERVER_URL_SOIL = "http://218.38.121.112:8000/v1/iot/sensor-data-with-image"
@@ -138,6 +139,7 @@ def main():
     sc = SerialClient(PORT, BAUD)
     print("Ready. Type A (토양) or B (환경) then Enter. (Ctrl+C to exit)")
     print(f"- Serial: {PORT}@{BAUD}")
+    print(f"- Test mode: {TEST_MODE} {'(strawberry.jpg 사용)' if TEST_MODE else '(카메라 사용)'}")
     print(f"- Camera index: {CAM_INDEX}")
     print(f"- Server (A/토양): {SERVER_URL_SOIL}")
     print(f"- Server (B/환경): {SERVER_URL_ENV}")
@@ -186,9 +188,12 @@ def main():
                 if k != "raw":
                     print(f"{k}: {v}")
 
-            # 3) 이미지 촬영
+            # 3) 이미지 촬영/테스트 이미지 사용
             img_filename = f"{device_id}_{ts}.jpg"
-            img_path = capture_image(img_filename, cam_index=CAM_INDEX)
+            if TEST_MODE:
+                img_path = get_test_image(img_filename)
+            else:
+                img_path = capture_image(img_filename, cam_index=CAM_INDEX)
             img_abs = str(Path(img_path).resolve())
 
             print("\n--- IMAGE ---")
