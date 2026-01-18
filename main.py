@@ -3,10 +3,13 @@ from pathlib import Path
 
 import requests
 
-from serial_client import SerialClient
+from serial_client import SerialClient, find_sensor_port
 from camera import capture_image
 
-PORT = "COM7"
+PORT = find_sensor_port()
+if not PORT:
+    print("센서를 찾을 수 없습니다. USB 연결을 확인하세요.")
+    exit(1)
 BAUD = 9600
 CAM_INDEX = 1
 
