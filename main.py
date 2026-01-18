@@ -16,7 +16,8 @@ if not PORT_ENV:
 if not PORT_SOIL and not PORT_ENV:
     exit(1)
 
-BAUD = 9600
+BAUD_SOIL = 9600      # 토양 센서 baud rate
+BAUD_ENV = 115200     # 환경 센서 baud rate
 CAM_INDEX = 1
 TEST_MODE = True  # 테스트 시 True (strawberry.jpg 사용), 실제 운영 시 False (카메라 사용)
 
@@ -142,12 +143,12 @@ def upload_env_observation(env_data: dict, image_path: str) -> dict:
 
 
 def main():
-    sc_soil = SerialClient(PORT_SOIL, BAUD) if PORT_SOIL else None
-    sc_env = SerialClient(PORT_ENV, BAUD) if PORT_ENV else None
+    sc_soil = SerialClient(PORT_SOIL, BAUD_SOIL) if PORT_SOIL else None
+    sc_env = SerialClient(PORT_ENV, BAUD_ENV) if PORT_ENV else None
 
     print("Ready. Type A (토양) or B (환경) then Enter. (Ctrl+C to exit)")
-    print(f"- 토양 센서 (A): {PORT_SOIL or '미연결'}@{BAUD}")
-    print(f"- 환경 센서 (B): {PORT_ENV or '미연결'}@{BAUD}")
+    print(f"- 토양 센서 (A): {PORT_SOIL or '미연결'}@{BAUD_SOIL}")
+    print(f"- 환경 센서 (B): {PORT_ENV or '미연결'}@{BAUD_ENV}")
     print(f"- Test mode: {TEST_MODE} {'(strawberry.jpg 사용)' if TEST_MODE else '(카메라 사용)'}")
     print(f"- Camera index: {CAM_INDEX}")
     print(f"- Server (A/토양): {SERVER_URL_SOIL}")
