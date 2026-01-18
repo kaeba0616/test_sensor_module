@@ -2,9 +2,8 @@
 import serial
 import time
 
-# 테스트할 포트 목록 (Linux)
-PORTS = [f"/dev/ttyUSB{i}" for i in range(5)]
-# Windows라면: PORTS = [f"COM{i}" for i in range(1, 6)]
+# 테스트할 포트 목록 (COM1 ~ COM6)
+PORTS = [f"COM{i}" for i in range(1, 7)]
 
 # 테스트할 baud rate
 BAUD_RATES = [9600, 115200]
