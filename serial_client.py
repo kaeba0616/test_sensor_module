@@ -3,8 +3,8 @@ import serial.tools.list_ports
 import time
 
 # 고정 COM 포트 설정
-SOIL_SENSOR_PORT = "COM4"  # 토양 센서
-ENV_SENSOR_PORT = "COM3"   # 환경 센서 (식물 센서)
+SOIL_SENSOR_PORT = "COM3"  # 토양 센서
+ENV_SENSOR_PORT = "COM4"   # 환경 센서 (식물 센서)
 
 
 def find_soil_sensor_port():
