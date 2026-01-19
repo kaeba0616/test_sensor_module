@@ -18,7 +18,7 @@ from mqtt_client import SensorMQTTClient
 # === 설정 ===
 INTERVAL_HOURS = 4  # 타이머 기반 자동 수집 간격 (시간)
 TEST_MODE = False   # True: strawberry.jpg 사용, False: 카메라 사용
-CAM_INDEX = 1
+CAM_INDEX = 0
 
 # Baud rate
 BAUD_SOIL = 9600
