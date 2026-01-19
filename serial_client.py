@@ -21,10 +21,16 @@ class SerialClient:
         self.ser = serial.Serial(port, baud, timeout=timeout)
 
     def send(self, msg):
+        self.ser.reset_input_buffer()  # 버퍼 클리어
         self.ser.write(f"{msg}\n".encode())
 
-    def receive(self):
-        return self.ser.readline().decode(errors="ignore").strip()
+    def receive(self, retries=3):
+        """응답 수신 (처음 2번 버리고 3번째 사용)"""
+        response = ""
+        for i in range(retries):
+            response = self.ser.readline().decode(errors="ignore").strip()
+            # 처음 2번은 버리고 3번째 응답 사용
+        return response
 
     def close(self):
         self.ser.close()
