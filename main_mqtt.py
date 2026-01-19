@@ -20,9 +20,9 @@ INTERVAL_HOURS = 4  # 타이머 기반 자동 수집 간격 (시간)
 TEST_MODE = False   # True: strawberry.jpg 사용, False: 카메라 사용
 CAM_INDEX = 0
 
-# Baud rate
+# Baud rate (둘 다 9600)
 BAUD_SOIL = 9600
-BAUD_ENV = 115200
+BAUD_ENV = 9600
 
 # 서버 URL (통합 엔드포인트)
 SERVER_URL = "http://218.38.121.112:8000/v1/iot/sensor-data"
