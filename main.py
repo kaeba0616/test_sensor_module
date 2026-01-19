@@ -1,4 +1,9 @@
+"""센서 모듈 메인 스크립트 (A: 토양, B: 환경)
+
+API 키 인증 방식 사용 - 센서 등록 시 발급받은 API 키 필요
+"""
 import time
+import os
 from pathlib import Path
 
 import requests
@@ -21,9 +26,12 @@ BAUD_ENV = 115200     # 환경 센서 baud rate
 CAM_INDEX = 1
 TEST_MODE = True  # 테스트 시 True (strawberry.jpg 사용), 실제 운영 시 False (카메라 사용)
 
-# 서버 URL (A: 토양센서, B: 환경센서)
-SERVER_URL_SOIL = "http://218.38.121.112:8000/v1/iot/sensor-data-with-image"
-SERVER_URL_ENV = "http://218.38.121.112:8000/v1/iot/environment-data-with-image"
+# 서버 URL (통합 엔드포인트)
+SERVER_URL = "http://218.38.121.112:8000/v1/iot/sensor-data"
+
+# API 키 설정 (환경변수 또는 직접 입력)
+# 센서 등록 후 발급받은 API 키를 여기에 입력하거나 환경변수로 설정
+API_KEY = os.environ.get("SENSOR_API_KEY", "sk_44373b38321d5e7f58892fb6e293a3824cd300d00edb3e225e59da7d")
 
 
 def parse_soil_csv(line: str) -> dict:
@@ -75,64 +83,68 @@ def parse_env_csv(line: str) -> dict:
     }
 
 
-def upload_soil_observation(soil_data: dict, image_path: str) -> dict:
-    """토양 센서 데이터와 이미지를 서버에 업로드 (A 명령어)"""
+def upload_sensor_data(command: str, sensor_data: dict, image_path: str = None) -> dict:
+    """센서 데이터를 서버에 업로드 (통합 엔드포인트)
 
-    form_data = {
-        "device_address": str(soil_data["address"]),
-        "temp": float(soil_data["temperature"]),
-        "humi": float(soil_data["humidity"]),
-        "ec": float(soil_data["ec"]),
-        "ph": float(soil_data["ph"]),
-        "salt": float(soil_data["salt"]),
-        "n": float(soil_data["n"]),
-        "p": float(soil_data["p"]),
-        "k": float(soil_data["k"]),
+    Args:
+        command: 'A' (토양센서) 또는 'B' (환경센서)
+        sensor_data: 센서 데이터 딕셔너리
+        image_path: 이미지 파일 경로 (선택)
+
+    Returns:
+        서버 응답 JSON
+    """
+    # 헤더에 API 키 설정
+    headers = {
+        "X-API-Key": API_KEY
     }
 
-    img_path = Path(image_path)
+    # 기본 폼 데이터 (공통 필드 + 명령어)
+    form_data = {
+        "command": command.upper(),
+        "temp": float(sensor_data["temperature"]),
+        "humi": float(sensor_data["humidity"]),
+    }
 
-    with open(img_path, "rb") as f:
+    # 명령어에 따라 추가 필드 설정
+    if command.upper() == 'A':
+        # 토양 센서 데이터
+        form_data.update({
+            "ec": float(sensor_data["ec"]),
+            "ph": float(sensor_data["ph"]),
+            "salt": float(sensor_data["salt"]),
+            "n": float(sensor_data["n"]),
+            "p": float(sensor_data["p"]),
+            "k": float(sensor_data["k"]),
+        })
+    else:
+        # 환경 센서 데이터
+        form_data.update({
+            "ch2o": float(sensor_data["ch2o"]),
+            "tvoc": float(sensor_data["tvoc"]),
+            "pm25": float(sensor_data["pm25"]),
+            "pm10": float(sensor_data["pm10"]),
+            "co2": float(sensor_data["co2"]),
+        })
+
+    # 이미지 파일 처리
+    files = None
+    if image_path and Path(image_path).exists():
+        img_path = Path(image_path)
+        f = open(img_path, "rb")
         files = {"image": (img_path.name, f, "image/jpeg")}
+
+    try:
         r = requests.post(
-            SERVER_URL_SOIL,
+            SERVER_URL,
+            headers=headers,
             data=form_data,
             files=files,
             timeout=30,
         )
-
-    if not r.ok:
-        raise RuntimeError(
-            f"Upload failed: HTTP {r.status_code}\n" f"Response text: {r.text[:2000]}"
-        )
-
-    return r.json()
-
-
-def upload_env_observation(env_data: dict, image_path: str) -> dict:
-    """환경 센서 데이터와 이미지를 서버에 업로드 (B 명령어)"""
-
-    form_data = {
-        "device_address": str(env_data["address"]),
-        "temp": float(env_data["temperature"]),
-        "humi": float(env_data["humidity"]),
-        "ch2o": float(env_data["ch2o"]),
-        "tvoc": float(env_data["tvoc"]),
-        "pm25": float(env_data["pm25"]),
-        "pm10": float(env_data["pm10"]),
-        "co2": float(env_data["co2"]),
-    }
-
-    img_path = Path(image_path)
-
-    with open(img_path, "rb") as f:
-        files = {"image": (img_path.name, f, "image/jpeg")}
-        r = requests.post(
-            SERVER_URL_ENV,
-            data=form_data,
-            files=files,
-            timeout=30,
-        )
+    finally:
+        if files:
+            files["image"][1].close()
 
     if not r.ok:
         raise RuntimeError(
@@ -151,12 +163,20 @@ def main():
     print(f"- 환경 센서 (B): {PORT_ENV or '미연결'}@{BAUD_ENV}")
     print(f"- Test mode: {TEST_MODE} {'(strawberry.jpg 사용)' if TEST_MODE else '(카메라 사용)'}")
     print(f"- Camera index: {CAM_INDEX}")
-    print(f"- Server (A/토양): {SERVER_URL_SOIL}")
-    print(f"- Server (B/환경): {SERVER_URL_ENV}")
+    print(f"- Server: {SERVER_URL}")
+    print(f"- API Key: {API_KEY[:15]}..." if len(API_KEY) > 15 else f"- API Key: {API_KEY}")
     print()
+
+    # API 키 확인
+    if API_KEY.startswith("sk_여기에"):
+        print("[WARNING] API 키가 설정되지 않았습니다!")
+        print("관리자 페이지에서 센서 등록 후 발급받은 API 키를 설정하세요.")
+        print("설정 방법: export SENSOR_API_KEY=sk_xxx... 또는 코드 직접 수정")
+        print()
+
     print("Commands:")
-    print("  A - 토양 센서 데이터 (temp, humi, ec, ph, salt, n, p, k)")
-    print("  B - 환경 센서 데이터 (temp, humi, ch2o, tvoc, pm25, pm10, co2)")
+    print("  A - 토양 센서 데이터 (temp, humi, ec, ph, salt, n, p, k) + 이미지 업로드")
+    print("  B - 환경 센서 데이터 (temp, humi, ch2o, tvoc, pm25, pm10, co2) + 업로드")
     print()
 
     try:
@@ -207,31 +227,31 @@ def main():
                 if k != "raw":
                     print(f"{k}: {v}")
 
-            # 3) 이미지 촬영/테스트 이미지 사용
-            img_filename = f"{device_id}_{ts}.jpg"
-            if TEST_MODE:
-                img_path = get_test_image(img_filename)
-            else:
-                img_path = capture_image(img_filename, cam_index=CAM_INDEX)
-            img_abs = str(Path(img_path).resolve())
+            # 3) 이미지 촬영/테스트 이미지 사용 (A 명령어만)
+            img_path = None
+            if cmd == "A":
+                img_filename = f"{device_id}_{ts}.jpg"
+                if TEST_MODE:
+                    img_path = get_test_image(img_filename)
+                else:
+                    img_path = capture_image(img_filename, cam_index=CAM_INDEX)
+                img_abs = str(Path(img_path).resolve())
 
-            print("\n--- IMAGE ---")
-            print("file:", img_filename)
-            print("saved_path:", img_path)
-            print("abs_path  :", img_abs)
-            print("exists?   :", Path(img_path).exists())
+                print("\n--- IMAGE ---")
+                print("file:", img_filename)
+                print("saved_path:", img_path)
+                print("abs_path  :", img_abs)
+                print("exists?   :", Path(img_path).exists())
 
-            # 4) 업로드
+            # 4) 업로드 (A: 이미지 포함, B: 센서 데이터만)
             print(f"\n--- UPLOAD ({data_type}) ---")
             try:
-                if cmd == "A":
-                    result = upload_soil_observation(sensor_data, img_path)
-                else:  # cmd == "B"
-                    result = upload_env_observation(sensor_data, img_path)
-
+                result = upload_sensor_data(cmd, sensor_data, img_path)
                 print("✅ uploaded:", result)
-                print(f"   AI Task ID: {result.get('ai_task_id')}")
+                if result.get('ai_task_id'):
+                    print(f"   AI Task ID: {result.get('ai_task_id')}")
                 print(f"   Farm ID: {result.get('farm_id')}")
+                print(f"   Records Created: {result.get('records_created')}")
             except Exception as e:
                 print("❌ upload error:", e)
 

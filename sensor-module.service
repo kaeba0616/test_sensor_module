@@ -1,0 +1,18 @@
+[Unit]
+Description=IoT Sensor Module (Auto)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/user/test_sensor_module
+ExecStart=/usr/bin/python3 /home/user/test_sensor_module/main_auto.py
+Restart=always
+RestartSec=10
+
+# 로그 출력
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
