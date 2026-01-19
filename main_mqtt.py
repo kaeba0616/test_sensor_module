@@ -319,7 +319,9 @@ def main():
         log("")
 
         # 메인 루프: 타이머 기반 자동 수집 + MQTT 명령 대기
-        last_auto_collect = 0
+        # 시작 시 즉시 수집하지 않도록 현재 시간으로 초기화
+        last_auto_collect = time.time()
+        log(f"   첫 자동 수집: {INTERVAL_HOURS}시간 후")
 
         while True:
             current_time = time.time()
