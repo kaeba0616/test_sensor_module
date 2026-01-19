@@ -22,20 +22,10 @@ class SerialClient:
         self.ser = serial.Serial(port, baud, timeout=timeout)
 
     def send(self, msg):
-        self.ser.reset_input_buffer()  # 버퍼 클리어
         self.ser.write(f"{msg}\n".encode())
-        time.sleep(0.5)  # 센서 응답 준비 시간
 
-    def receive(self, retries=3):
-        """응답 수신 (처음 2번 버리고 3번째 사용)"""
-        response = ""
-        for i in range(retries):
-            line = self.ser.readline().decode(errors="ignore").strip()
-            print(f"   [DEBUG] Read #{i+1}: '{line}'")
-            response = line
-            if i < retries - 1:
-                time.sleep(0.3)  # 다음 응답 대기
-        return response
+    def receive(self):
+        return self.ser.readline().decode(errors="ignore").strip()
 
     def close(self):
         self.ser.close()
