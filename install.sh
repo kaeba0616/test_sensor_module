@@ -15,23 +15,29 @@ echo "설치 경로: $INSTALL_DIR"
 # 1. 의존성 설치
 echo ""
 echo "[1/4] 의존성 설치..."
-pip3 install opencv-python pyserial requests
+pip3 install opencv-python pyserial requests paho-mqtt
 
 # 2. systemd 서비스 파일 생성 (경로 자동 설정)
 echo ""
 echo "[2/4] systemd 서비스 파일 생성..."
 sudo tee $SERVICE_FILE > /dev/null << EOF
 [Unit]
-Description=IoT Sensor Module (Auto)
+Description=IoT Sensor Module (MQTT)
 After=network.target
 
 [Service]
 Type=simple
 User=root
 WorkingDirectory=$INSTALL_DIR
-ExecStart=/usr/bin/python3 $INSTALL_DIR/main_auto.py
+ExecStart=/usr/bin/python3 $INSTALL_DIR/main_mqtt.py
 Restart=always
 RestartSec=10
+
+# MQTT 및 API 설정 (필요시 수정)
+Environment="MQTT_BROKER=218.38.121.112"
+Environment="MQTT_PORT=1883"
+Environment="FARM_ID=16e23f55-25aa-4cad-a9a8-91ddd32613b8"
+Environment="SENSOR_API_KEY=sk_44373b38321d5e7f58892fb6e293a3824cd300d00edb3e225e59da7d"
 
 StandardOutput=journal
 StandardError=journal
