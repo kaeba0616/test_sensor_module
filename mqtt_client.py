@@ -43,9 +43,6 @@ class SensorMQTTClient:
                 topic = f"farm/{self.farm_id}/command"
                 client.subscribe(topic, qos=1)
                 logger.info(f"📡 토픽 구독: {topic}")
-
-                # Also subscribe to wildcard for testing
-                client.subscribe("farm/+/command", qos=1)
         else:
             logger.error(f"❌ MQTT 연결 실패, 코드: {rc}")
             self.connected = False
