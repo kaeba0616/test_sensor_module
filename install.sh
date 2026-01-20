@@ -15,7 +15,9 @@ echo "설치 경로: $INSTALL_DIR"
 # 1. 의존성 설치
 echo ""
 echo "[1/5] 의존성 설치..."
-pip3 install opencv-python pyserial requests paho-mqtt python-dotenv
+echo "패키지 설치 중..."
+py -m pip install opencv-python pyserial requests paho-mqtt python-dotenv
+echo "패키지 설치 완료"
 
 # 2. .env 파일 생성 (없는 경우)
 echo ""
