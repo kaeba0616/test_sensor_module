@@ -29,7 +29,12 @@ class SensorMQTTClient:
         self.broker_port = broker_port
         self.farm_id = farm_id
         self.organization_id = organization_id
-        self.client_id = client_id or f"sensor-{farm_id or 'unknown'}"
+        # 고유 client_id 생성 (farm_id + hostname + random suffix) - 여러 미니PC 동시 연결 지원
+        import socket
+        import random
+        hostname = socket.gethostname()[:8]
+        suffix = random.randint(1000, 9999)
+        self.client_id = client_id or f"sensor-{farm_id or 'unknown'}-{hostname}-{suffix}"
         self.client: Optional[mqtt.Client] = None
         self.connected = False
         self.command_callback: Optional[Callable] = None
