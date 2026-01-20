@@ -46,10 +46,28 @@ ORG_ID = os.environ.get("ORG_ID", "eae6d5a2-4ee5-4299-832b-8ca0f0f02a50")
 SCHEDULE_API_URL = "http://218.38.121.112:8000/v1/iot/schedule"
 
 
+LOG_FILE = Path(__file__).parent / "sensor_log.txt"
+LOG_MAX_LINES = 5000  # 로그 파일 최대 줄 수
+
 def log(msg: str):
-    """타임스탬프 포함 로그 출력"""
+    """타임스탬프 포함 로그 출력 (콘솔 + 파일)"""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{ts}] {msg}", flush=True)
+    log_line = f"[{ts}] {msg}"
+    print(log_line, flush=True)
+
+    # 파일에도 기록
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(log_line + "\n")
+
+        # 로그 파일 크기 관리 (5000줄 초과 시 오래된 줄 삭제)
+        if LOG_FILE.exists() and LOG_FILE.stat().st_size > 500000:  # ~500KB 초과시
+            lines = LOG_FILE.read_text(encoding="utf-8").splitlines()
+            if len(lines) > LOG_MAX_LINES:
+                # 최근 3000줄만 유지
+                LOG_FILE.write_text("\n".join(lines[-3000:]) + "\n", encoding="utf-8")
+    except Exception:
+        pass  # 파일 쓰기 실패 시 무시
 
 
 def fetch_schedule_from_server() -> bool:
@@ -376,13 +394,63 @@ def main():
     def handle_schedule_update(start_time: str, end_time: str, interval_minutes: int, payload: dict):
         """서버에서 수집 스케줄 변경 시 처리"""
         global COLLECTION_START_TIME, COLLECTION_END_TIME, INTERVAL_MINUTES
-        old_schedule = f"{COLLECTION_START_TIME}~{COLLECTION_END_TIME}, {INTERVAL_MINUTES}분"
+
+        # 변경 전 값 저장
+        old_start = COLLECTION_START_TIME
+        old_end = COLLECTION_END_TIME
+        old_interval = INTERVAL_MINUTES
+
+        # 새 값 적용
         COLLECTION_START_TIME = start_time
         COLLECTION_END_TIME = end_time
         INTERVAL_MINUTES = interval_minutes
-        new_schedule = f"{start_time}~{end_time}, {interval_minutes}분"
-        log(f"⚙️ 수집 스케줄 변경: {old_schedule} → {new_schedule}")
-        log(f"   다음 수집 사이클부터 적용됩니다")
+
+        # 변경 사항 확인
+        time_changed = (old_start != start_time) or (old_end != end_time)
+        interval_changed = old_interval != interval_minutes
+
+        # 눈에 띄는 로그 출력
+        log("")
+        log("=" * 60)
+        log("🔔 서버에서 수집 스케줄 변경 알림 수신")
+        log("=" * 60)
+
+        if time_changed:
+            log(f"   📅 수집 시간대: {old_start} ~ {old_end}  →  {start_time} ~ {end_time}")
+        else:
+            log(f"   📅 수집 시간대: {start_time} ~ {end_time} (변경 없음)")
+
+        if interval_changed:
+            # 간격을 읽기 쉽게 변환
+            old_label = f"{old_interval // 60}시간 {old_interval % 60}분" if old_interval >= 60 else f"{old_interval}분"
+            new_label = f"{interval_minutes // 60}시간 {interval_minutes % 60}분" if interval_minutes >= 60 else f"{interval_minutes}분"
+            if old_interval >= 60 and old_interval % 60 == 0:
+                old_label = f"{old_interval // 60}시간"
+            if interval_minutes >= 60 and interval_minutes % 60 == 0:
+                new_label = f"{interval_minutes // 60}시간"
+            log(f"   ⏱️  수집 간격: {old_label}  →  {new_label}")
+        else:
+            log(f"   ⏱️  수집 간격: {interval_minutes}분 (변경 없음)")
+
+        log("-" * 60)
+        log(f"   ✅ 변경된 설정이 즉시 적용되었습니다")
+        log(f"   📡 다음 자동 수집은 현재 설정에 따라 실행됩니다")
+        log("=" * 60)
+        log("")
+
+        # MQTT 상태 업데이트 발행
+        mqtt_client.publish_status("schedule_updated", {
+            "old_schedule": {
+                "start_time": old_start,
+                "end_time": old_end,
+                "interval_minutes": old_interval
+            },
+            "new_schedule": {
+                "start_time": start_time,
+                "end_time": end_time,
+                "interval_minutes": interval_minutes
+            }
+        })
 
     # MQTT 클라이언트 시작
     mqtt_client = SensorMQTTClient(
