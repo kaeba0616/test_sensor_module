@@ -1,12 +1,17 @@
 """센서 모듈 메인 스크립트 (A: 토양, B: 환경)
 
 API 키 인증 방식 사용 - 센서 등록 시 발급받은 API 키 필요
+.env 파일에서 FARM_ID, SENSOR_API_KEY 설정 필요
 """
 import time
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
 import requests
+
+# .env 파일 로드
+load_dotenv()
 
 from serial_client import SerialClient, find_soil_sensor_port, find_env_sensor_port
 from camera import capture_image, get_test_image
@@ -29,9 +34,9 @@ TEST_MODE = True  # 테스트 시 True (strawberry.jpg 사용), 실제 운영 �
 # 서버 URL (통합 엔드포인트)
 SERVER_URL = "http://218.38.121.112:8000/v1/iot/sensor-data"
 
-# API 키 설정 (환경변수 또는 직접 입력)
-# 센서 등록 후 발급받은 API 키를 여기에 입력하거나 환경변수로 설정
-API_KEY = os.environ.get("SENSOR_API_KEY", "sk_44373b38321d5e7f58892fb6e293a3824cd300d00edb3e225e59da7d")
+# 환경변수에서 설정 로드 (.env 파일 또는 시스템 환경변수)
+FARM_ID = os.environ.get("FARM_ID", "")
+API_KEY = os.environ.get("SENSOR_API_KEY", "")
 
 
 def parse_soil_csv(line: str) -> dict:
@@ -164,14 +169,17 @@ def main():
     print(f"- Test mode: {TEST_MODE} {'(strawberry.jpg 사용)' if TEST_MODE else '(카메라 사용)'}")
     print(f"- Camera index: {CAM_INDEX}")
     print(f"- Server: {SERVER_URL}")
-    print(f"- API Key: {API_KEY[:15]}..." if len(API_KEY) > 15 else f"- API Key: {API_KEY}")
+    print(f"- Farm ID: {FARM_ID or '미설정'}")
+    print(f"- API Key: {API_KEY[:15]}..." if len(API_KEY) > 15 else f"- API Key: {API_KEY or '미설정'}")
     print()
 
-    # API 키 확인
-    if API_KEY.startswith("sk_여기에"):
-        print("[WARNING] API 키가 설정되지 않았습니다!")
-        print("관리자 페이지에서 센서 등록 후 발급받은 API 키를 설정하세요.")
-        print("설정 방법: export SENSOR_API_KEY=sk_xxx... 또는 코드 직접 수정")
+    # 환경변수 확인
+    if not API_KEY or not FARM_ID:
+        print("[WARNING] 환경변수가 설정되지 않았습니다!")
+        print(".env 파일을 생성하고 다음 값을 설정하세요:")
+        print("  FARM_ID=your-farm-id")
+        print("  SENSOR_API_KEY=sk_your_api_key")
+        print("또는 .env.example 파일을 참고하세요.")
         print()
 
     print("Commands:")

@@ -191,6 +191,7 @@ class SensorCollector:
                 log("❌ 토양 센서 응답 없음")
                 return False
 
+            log(f"   [RAW] 센서 응답: '{line}'")
             soil_data = parse_soil_csv(line)
             log(f"   데이터: temp={soil_data['temperature']}, humidity={soil_data['humidity']}, ec={soil_data['ec']}, ph={soil_data['ph']}")
 

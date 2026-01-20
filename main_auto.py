@@ -1,13 +1,18 @@
 """타이머 기반 자동 실행 스크립트 (하루 3~5번)
 
 API 키 인증 방식 사용 - 센서 등록 시 발급받은 API 키 필요
+.env 파일에서 FARM_ID, SENSOR_API_KEY 설정 필요
 """
 import time
 import os
 from pathlib import Path
 from datetime import datetime
 
+from dotenv import load_dotenv
 import requests
+
+# .env 파일 로드
+load_dotenv()
 
 from serial_client import SerialClient, find_soil_sensor_port, find_env_sensor_port
 from camera import capture_image, get_test_image
@@ -24,9 +29,9 @@ BAUD_ENV = 115200
 # 서버 URL (통합 엔드포인트)
 SERVER_URL = "http://218.38.121.112:8000/v1/iot/sensor-data"
 
-# API 키 설정 (환경변수 또는 직접 입력)
-# 센서 등록 후 발급받은 API 키를 여기에 입력하거나 환경변수로 설정
-API_KEY = os.environ.get("SENSOR_API_KEY", "sk_44373b38321d5e7f58892fb6e293a3824cd300d00edb3e225e59da7d")
+# 환경변수에서 설정 로드 (.env 파일 또는 시스템 환경변수)
+FARM_ID = os.environ.get("FARM_ID", "")
+API_KEY = os.environ.get("SENSOR_API_KEY", "")
 
 
 def parse_soil_csv(line: str) -> dict:
@@ -200,13 +205,14 @@ def main():
     log("=== 센서 자동 실행 시작 ===")
     log(f"실행 간격: {INTERVAL_HOURS}시간 (하루 약 {24 // INTERVAL_HOURS}번)")
     log(f"서버: {SERVER_URL}")
-    log(f"API Key: {API_KEY[:15]}..." if len(API_KEY) > 15 else f"API Key: {API_KEY}")
+    log(f"Farm ID: {FARM_ID or '미설정'}")
+    log(f"API Key: {API_KEY[:15]}..." if len(API_KEY) > 15 else f"API Key: {API_KEY or '미설정'}")
 
-    # API 키 확인
-    if API_KEY.startswith("sk_여기에"):
-        log("[WARNING] API 키가 설정되지 않았습니다!")
-        log("관리자 페이지에서 센서 등록 후 발급받은 API 키를 설정하세요.")
-        log("설정 방법: export SENSOR_API_KEY=sk_xxx...")
+    # 환경변수 확인
+    if not API_KEY or not FARM_ID:
+        log("[WARNING] 환경변수가 설정되지 않았습니다!")
+        log(".env 파일을 생성하고 FARM_ID, SENSOR_API_KEY를 설정하세요.")
+        log(".env.example 파일을 참고하세요.")
 
     # 포트 찾기
     port_soil = find_soil_sensor_port()
