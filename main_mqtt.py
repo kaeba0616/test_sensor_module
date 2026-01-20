@@ -16,7 +16,7 @@ from camera import capture_image, get_test_image
 from mqtt_client import SensorMQTTClient
 
 # === 설정 ===
-INTERVAL_HOURS = 1/60  # 테스트용: 1분 간격 (원래: 4시간)
+INTERVAL_HOURS = 4  # 테스트용: 1분 간격 (원래: 4시간)
 TEST_MODE = False   # True: strawberry.jpg 사용, False: 카메라 사용
 CAM_INDEX = 0
 
