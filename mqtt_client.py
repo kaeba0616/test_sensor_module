@@ -22,15 +22,18 @@ class SensorMQTTClient:
         broker_host: str,
         broker_port: int = 1883,
         farm_id: str = None,
+        organization_id: str = None,
         client_id: str = None
     ):
         self.broker_host = broker_host
         self.broker_port = broker_port
         self.farm_id = farm_id
+        self.organization_id = organization_id
         self.client_id = client_id or f"sensor-{farm_id or 'unknown'}"
         self.client: Optional[mqtt.Client] = None
         self.connected = False
         self.command_callback: Optional[Callable] = None
+        self.schedule_callback: Optional[Callable] = None
 
     def on_connect(self, client, userdata, flags, rc):
         """Callback when connected to MQTT broker"""
@@ -43,6 +46,12 @@ class SensorMQTTClient:
                 topic = f"farm/{self.farm_id}/command"
                 client.subscribe(topic, qos=1)
                 logger.info(f"📡 토픽 구독: {topic}")
+
+            # Subscribe to organization settings topic (for schedule updates)
+            if self.organization_id:
+                schedule_topic = f"organization/{self.organization_id}/settings/schedule"
+                client.subscribe(schedule_topic, qos=1)
+                logger.info(f"📡 토픽 구독: {schedule_topic}")
         else:
             logger.error(f"❌ MQTT 연결 실패, 코드: {rc}")
             self.connected = False
@@ -64,6 +73,16 @@ class SensorMQTTClient:
             logger.info(f"📥 메시지 수신: {topic}")
             logger.info(f"   내용: {json.dumps(payload, ensure_ascii=False)}")
 
+            # Check if this is a schedule update message
+            if "settings/schedule" in topic:
+                start_time = payload.get("start_time")
+                end_time = payload.get("end_time")
+                interval_minutes = payload.get("interval_minutes")
+                if start_time and end_time and interval_minutes and self.schedule_callback:
+                    self.schedule_callback(start_time, end_time, interval_minutes, payload)
+                return
+
+            # Handle command messages
             action = payload.get("action")
             request_id = payload.get("request_id")
             farm_id = payload.get("farm_id")
@@ -92,6 +111,15 @@ class SensorMQTTClient:
         """
         self.command_callback = callback
         logger.info("📝 명령 콜백 등록 완료")
+
+    def on_schedule_update(self, callback: Callable[[str, str, int, dict], None]):
+        """Register a callback for schedule update messages
+
+        Args:
+            callback: Function that takes (start_time: str, end_time: str, interval_minutes: int, payload: dict)
+        """
+        self.schedule_callback = callback
+        logger.info("📝 수집 스케줄 업데이트 콜백 등록 완료")
 
     def connect(self):
         """Connect to MQTT broker"""

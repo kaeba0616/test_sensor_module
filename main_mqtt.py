@@ -16,7 +16,11 @@ from camera import capture_image, get_test_image
 from mqtt_client import SensorMQTTClient
 
 # === 설정 ===
-INTERVAL_HOURS = 4  # 테스트용: 1분 간격 (원래: 4시간)
+# 수집 스케줄 설정 (서버에서 MQTT로 변경 가능)
+COLLECTION_START_TIME = "00:00"  # 기본값: 00:00 (24시간 수집)
+COLLECTION_END_TIME = "23:59"    # 기본값: 23:59
+INTERVAL_MINUTES = 240           # 기본값: 240분 (4시간)
+
 TEST_MODE = False   # True: strawberry.jpg 사용, False: 카메라 사용
 CAM_INDEX = 0
 
@@ -35,12 +39,54 @@ MQTT_BROKER = os.environ.get("MQTT_BROKER", "218.38.121.112")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
 # Farm ID (Spot1 기본값 - 실제 환경에서는 설정 필요)
 FARM_ID = os.environ.get("FARM_ID", "16e23f55-25aa-4cad-a9a8-91ddd32613b8")
+# Organization ID (센서 전송 주기 구독용)
+ORG_ID = os.environ.get("ORG_ID", "eae6d5a2-4ee5-4299-832b-8ca0f0f02a50")
+
+# 스케줄 조회 API URL (IoT 디바이스용 - API Key 인증)
+SCHEDULE_API_URL = "http://218.38.121.112:8000/v1/iot/schedule"
 
 
 def log(msg: str):
     """타임스탬프 포함 로그 출력"""
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"[{ts}] {msg}", flush=True)
+
+
+def fetch_schedule_from_server() -> bool:
+    """서버에서 현재 수집 스케줄을 가져옴
+
+    Returns:
+        True if successful, False otherwise
+    """
+    global COLLECTION_START_TIME, COLLECTION_END_TIME, INTERVAL_MINUTES
+
+    log(f"📡 서버에서 수집 스케줄 조회 중...")
+
+    try:
+        headers = {"X-API-Key": API_KEY}
+        response = requests.get(SCHEDULE_API_URL, headers=headers, timeout=10)
+
+        if response.status_code == 200:
+            data = response.json()
+            COLLECTION_START_TIME = data.get("start_time", COLLECTION_START_TIME)
+            COLLECTION_END_TIME = data.get("end_time", COLLECTION_END_TIME)
+            INTERVAL_MINUTES = data.get("interval_minutes", INTERVAL_MINUTES)
+
+            log(f"✅ 스케줄 조회 성공: {COLLECTION_START_TIME} ~ {COLLECTION_END_TIME}, {INTERVAL_MINUTES}분 간격")
+            return True
+        else:
+            log(f"⚠️ 스케줄 조회 실패 (HTTP {response.status_code}): 기본값 사용")
+            return False
+
+    except requests.exceptions.ConnectionError:
+        log(f"⚠️ 서버 연결 실패: 기본값 사용 ({COLLECTION_START_TIME}~{COLLECTION_END_TIME}, {INTERVAL_MINUTES}분)")
+        return False
+    except requests.exceptions.Timeout:
+        log(f"⚠️ 서버 응답 시간 초과: 기본값 사용")
+        return False
+    except Exception as e:
+        log(f"⚠️ 스케줄 조회 오류: {e}")
+        return False
 
 
 def parse_soil_csv(line: str) -> dict:
@@ -263,15 +309,37 @@ class SensorCollector:
         return soil_ok or env_ok
 
 
+def is_within_collection_window() -> bool:
+    """현재 시간이 수집 시간대 내인지 확인"""
+    now = datetime.now().time()
+    start = datetime.strptime(COLLECTION_START_TIME, "%H:%M").time()
+    end = datetime.strptime(COLLECTION_END_TIME, "%H:%M").time()
+
+    if start <= end:
+        # 일반적인 경우: 09:00 ~ 18:00
+        return start <= now <= end
+    else:
+        # 자정을 넘기는 경우: 22:00 ~ 06:00
+        return now >= start or now <= end
+
+
 def main():
+    global COLLECTION_START_TIME, COLLECTION_END_TIME, INTERVAL_MINUTES
+
     log("=" * 50)
     log("MQTT 기반 센서 데이터 수집 시작")
     log("=" * 50)
     log(f"서버: {SERVER_URL}")
     log(f"MQTT 브로커: {MQTT_BROKER}:{MQTT_PORT}")
     log(f"Farm ID: {FARM_ID}")
+    log(f"Organization ID: {ORG_ID}")
     log(f"API Key: {API_KEY[:15]}...")
-    log(f"자동 수집 간격: {INTERVAL_HOURS}시간")
+    log("")
+
+    # 서버에서 현재 수집 스케줄 가져오기
+    fetch_schedule_from_server()
+
+    log(f"적용된 수집 스케줄: {COLLECTION_START_TIME} ~ {COLLECTION_END_TIME}, {INTERVAL_MINUTES}분 간격")
     log("")
 
     # 센서 초기화
@@ -295,46 +363,90 @@ def main():
             mqtt_client.publish_status("online", {
                 "soil_connected": collector.sc_soil is not None,
                 "env_connected": collector.sc_env is not None,
+                "schedule": {
+                    "start_time": COLLECTION_START_TIME,
+                    "end_time": COLLECTION_END_TIME,
+                    "interval_minutes": INTERVAL_MINUTES
+                }
             })
         else:
             log(f"⚠️ 알 수 없는 명령: {action}")
+
+    # 수집 스케줄 업데이트 핸들러
+    def handle_schedule_update(start_time: str, end_time: str, interval_minutes: int, payload: dict):
+        """서버에서 수집 스케줄 변경 시 처리"""
+        global COLLECTION_START_TIME, COLLECTION_END_TIME, INTERVAL_MINUTES
+        old_schedule = f"{COLLECTION_START_TIME}~{COLLECTION_END_TIME}, {INTERVAL_MINUTES}분"
+        COLLECTION_START_TIME = start_time
+        COLLECTION_END_TIME = end_time
+        INTERVAL_MINUTES = interval_minutes
+        new_schedule = f"{start_time}~{end_time}, {interval_minutes}분"
+        log(f"⚙️ 수집 스케줄 변경: {old_schedule} → {new_schedule}")
+        log(f"   다음 수집 사이클부터 적용됩니다")
 
     # MQTT 클라이언트 시작
     mqtt_client = SensorMQTTClient(
         broker_host=MQTT_BROKER,
         broker_port=MQTT_PORT,
-        farm_id=FARM_ID
+        farm_id=FARM_ID,
+        organization_id=ORG_ID
     )
     mqtt_client.on_command(handle_command)
+    mqtt_client.on_schedule_update(handle_schedule_update)
 
     try:
         mqtt_client.connect()
         mqtt_client.publish_status("online", {
             "soil_connected": collector.sc_soil is not None,
             "env_connected": collector.sc_env is not None,
+            "schedule": {
+                "start_time": COLLECTION_START_TIME,
+                "end_time": COLLECTION_END_TIME,
+                "interval_minutes": INTERVAL_MINUTES
+            }
         })
 
         log("")
         log("🟢 MQTT 명령 대기 중... (Ctrl+C로 종료)")
-        log(f"   타이머 기반 자동 수집: {INTERVAL_HOURS}시간 간격")
+        log(f"   수집 스케줄: {COLLECTION_START_TIME} ~ {COLLECTION_END_TIME}")
+        log(f"   수집 간격: {INTERVAL_MINUTES}분")
+        log(f"   스케줄 토픽: organization/{ORG_ID}/settings/schedule")
         log("")
 
-        # 메인 루프: 타이머 기반 자동 수집 + MQTT 명령 대기
-        # 시작 시 즉시 수집하지 않도록 현재 시간으로 초기화
+        # 메인 루프: 스케줄 기반 자동 수집 + MQTT 명령 대기
         last_auto_collect = time.time()
-        log(f"   첫 자동 수집: {INTERVAL_HOURS}시간 후")
+        was_in_window = is_within_collection_window()
+
+        if was_in_window:
+            log(f"   현재 수집 시간대 내입니다. 첫 수집: {INTERVAL_MINUTES}분 후")
+        else:
+            log(f"   현재 수집 시간대 외입니다. {COLLECTION_START_TIME}에 수집이 시작됩니다.")
 
         while True:
             current_time = time.time()
+            in_window = is_within_collection_window()
 
-            # 타이머 기반 자동 수집
-            if current_time - last_auto_collect >= INTERVAL_HOURS * 3600:
-                log("⏰ 타이머 기반 자동 수집 실행")
-                collector.collect_all()
-                last_auto_collect = current_time
-                log(f"   다음 자동 수집: {INTERVAL_HOURS}시간 후")
+            # 수집 시간대 진입 감지
+            if in_window and not was_in_window:
+                log(f"📅 수집 시간대 시작: {COLLECTION_START_TIME}")
+                last_auto_collect = current_time  # 즉시 수집하지 않고 다음 간격에 수집
 
-            time.sleep(1)
+            # 수집 시간대 종료 감지
+            if not in_window and was_in_window:
+                log(f"📅 수집 시간대 종료: {COLLECTION_END_TIME}")
+
+            was_in_window = in_window
+
+            # 수집 시간대 내에서만 자동 수집
+            if in_window:
+                # 간격 체크 (분 단위)
+                if current_time - last_auto_collect >= INTERVAL_MINUTES * 60:
+                    log("⏰ 스케줄 기반 자동 수집 실행")
+                    collector.collect_all()
+                    last_auto_collect = current_time
+                    log(f"   다음 수집: {INTERVAL_MINUTES}분 후")
+
+            time.sleep(30)  # 30초마다 체크
 
     except KeyboardInterrupt:
         log("\n사용자에 의해 종료됨")
