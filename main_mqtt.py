@@ -52,8 +52,8 @@ def parse_soil_csv(line: str) -> dict:
     address, temperature, humidity, ec, ph, salt, n, p, k = map(float, parts)
     return {
         "address": int(address),
-        "temperature": temperature,
-        "humidity": humidity,
+        "temperature": temperature / 10,  # 센서 데이터가 10배로 들어옴
+        "humidity": humidity / 10,        # 센서 데이터가 10배로 들어옴
         "ec": ec,
         "ph": ph,
         "salt": salt,
