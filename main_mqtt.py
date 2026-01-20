@@ -39,8 +39,8 @@ MQTT_BROKER = os.environ.get("MQTT_BROKER", "218.38.121.112")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
 # Farm ID (Spot1 기본값 - 실제 환경에서는 설정 필요)
 FARM_ID = os.environ.get("FARM_ID", "16e23f55-25aa-4cad-a9a8-91ddd32613b8")
-# Organization ID (센서 전송 주기 구독용)
-ORG_ID = os.environ.get("ORG_ID", "eae6d5a2-4ee5-4299-832b-8ca0f0f02a50")
+# Organization ID (센서 전송 주기 구독용) - 메타오가닉
+ORG_ID = os.environ.get("ORG_ID", "00703f64-7a9b-4f2a-833a-1c2558f5afcf")
 
 # 스케줄 조회 API URL (IoT 디바이스용 - API Key 인증)
 SCHEDULE_API_URL = "http://218.38.121.112:8000/v1/iot/schedule"
