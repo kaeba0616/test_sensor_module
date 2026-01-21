@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-echo === 절전 모드 비활성화 (관리자 권한 필요) ===
+echo === 절전 모드 완전 비활성화 (관리자 권한 필요) ===
 echo.
 
 :: 관리자 권한 확인
@@ -12,23 +12,27 @@ if %errorLevel% neq 0 (
     exit /b 1
 )
 
-echo [1/3] 절전 모드 비활성화...
+echo [1/4] 절전 모드 비활성화...
 powercfg -change -standby-timeout-ac 0
 powercfg -change -standby-timeout-dc 0
 
-echo [2/3] 최대 절전 모드 비활성화...
+echo [2/4] 최대 절전 모드 비활성화...
 powercfg -change -hibernate-timeout-ac 0
 powercfg -change -hibernate-timeout-dc 0
 
-echo [3/3] 화면 끄기 시간 설정 (10분 후)...
-powercfg -change -monitor-timeout-ac 10
-powercfg -change -monitor-timeout-dc 10
+echo [3/4] 화면 끄기 비활성화 (항상 켜짐)...
+powercfg -change -monitor-timeout-ac 0
+powercfg -change -monitor-timeout-dc 0
+
+echo [4/4] 고성능 전원 관리 옵션 활성화...
+powercfg -setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
 
 echo.
 echo === 완료 ===
 echo - 절전 모드: 사용 안 함
 echo - 최대 절전 모드: 사용 안 함
-echo - 화면 끄기: 10분 후
+echo - 화면 끄기: 사용 안 함 (항상 켜짐)
+echo - 전원 관리: 고성능
 echo.
-echo 컴퓨터가 계속 실행되며 센서 모듈이 정상 작동합니다.
+echo 컴퓨터와 화면이 계속 켜져있습니다.
 pause
