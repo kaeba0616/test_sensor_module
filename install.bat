@@ -30,12 +30,16 @@ echo.
 echo === 설치 완료 ===
 echo.
 echo 사용 방법:
-echo   1. .env 파일을 열어 FARM_ID와 SENSOR_API_KEY 설정
-echo   2. 수동 실행: py main.py
-echo   3. 자동 실행: py main_auto.py
+echo   1. .env 파일을 열어 다음 값 설정:
+echo      - FARM_ID (농장 ID)
+echo      - SENSOR_API_KEY_SOIL (토양 센서 API 키)
+echo      - SENSOR_API_KEY_PLANT (식물 센서 API 키)
+echo      - ORG_ID (조직 ID)
+echo   2. 테스트 실행: py main.py
+echo   3. MQTT 실행: py main_mqtt.py
 echo.
 echo 백그라운드 자동 실행 설정:
-echo   - 작업 스케줄러에서 main_auto.py 등록
+echo   - install_service.bat 실행 (NSSM 서비스 등록)
 echo   - 또는 start_background.bat 실행
 echo.
 pause

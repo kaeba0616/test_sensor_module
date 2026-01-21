@@ -51,7 +51,7 @@ if %errorLevel% equ 0 (
 :: 서비스 설치
 echo.
 echo [2/3] 서비스 설치...
-%NSSM_PATH% install %SERVICE_NAME% "%PYTHON_PATH%" "%INSTALL_DIR%main_auto.py"
+%NSSM_PATH% install %SERVICE_NAME% "%PYTHON_PATH%" "%INSTALL_DIR%main_mqtt.py"
 %NSSM_PATH% set %SERVICE_NAME% AppDirectory "%INSTALL_DIR%"
 %NSSM_PATH% set %SERVICE_NAME% DisplayName "IoT Sensor Module"
 %NSSM_PATH% set %SERVICE_NAME% Description "농업용 센서 데이터 수집 모듈"
