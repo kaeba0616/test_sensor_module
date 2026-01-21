@@ -9,6 +9,10 @@ import threading
 from pathlib import Path
 from datetime import datetime
 
+# .env 파일 로드
+from dotenv import load_dotenv
+load_dotenv()
+
 import requests
 
 from serial_client import SerialClient, find_soil_sensor_port, find_env_sensor_port
@@ -482,13 +486,17 @@ def main():
         log("")
 
         # 메인 루프: 스케줄 기반 자동 수집 + MQTT 명령 대기
-        last_auto_collect = time.time()
         was_in_window = is_within_collection_window()
 
+        # 시작 시 즉시 수집 실행 (수집 시간대 내인 경우)
         if was_in_window:
-            log(f"   현재 수집 시간대 내입니다. 첫 수집: {INTERVAL_MINUTES}분 후")
+            log("🚀 시작 시 즉시 데이터 수집 실행...")
+            collector.collect_all()
+            log(f"   다음 수집: {INTERVAL_MINUTES}분 후")
         else:
             log(f"   현재 수집 시간대 외입니다. {COLLECTION_START_TIME}에 수집이 시작됩니다.")
+
+        last_auto_collect = time.time()  # 즉시 수집 후 타이머 시작
 
         while True:
             current_time = time.time()
