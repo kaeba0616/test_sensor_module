@@ -35,8 +35,11 @@ BAUD_ENV = 9600
 # 서버 URL (통합 엔드포인트)
 SERVER_URL = "http://218.38.121.112:8000/v1/iot/sensor-data"
 
-# API 키 설정 (환경변수 또는 직접 입력)
-API_KEY = os.environ.get("SENSOR_API_KEY", "sk_44373b38321d5e7f58892fb6e293a3824cd300d00edb3e225e59da7d")
+# API 키 설정 (센서별 별도 API 키)
+# 토양 센서 API 키 (A 명령)
+API_KEY_SOIL = os.environ.get("SENSOR_API_KEY_SOIL", os.environ.get("SENSOR_API_KEY", ""))
+# 식물 센서 API 키 (B 명령)
+API_KEY_PLANT = os.environ.get("SENSOR_API_KEY_PLANT", "")
 
 # MQTT 설정
 MQTT_BROKER = os.environ.get("MQTT_BROKER", "218.38.121.112")
@@ -85,7 +88,8 @@ def fetch_schedule_from_server() -> bool:
     log(f"📡 서버에서 수집 스케줄 조회 중...")
 
     try:
-        headers = {"X-API-Key": API_KEY}
+        # 스케줄 조회는 토양 센서 API 키 사용 (둘 다 같은 농가이므로)
+        headers = {"X-API-Key": API_KEY_SOIL}
         response = requests.get(SCHEDULE_API_URL, headers=headers, timeout=10)
 
         if response.status_code == 200:
@@ -152,7 +156,17 @@ def parse_env_csv(line: str) -> dict:
 
 def upload_sensor_data(command: str, sensor_data: dict, image_path: str = None) -> dict:
     """센서 데이터를 서버에 업로드 (통합 엔드포인트)"""
-    headers = {"X-API-Key": API_KEY}
+    # 명령에 따라 적절한 API 키 선택
+    if command.upper() == 'A':
+        api_key = API_KEY_SOIL
+        if not api_key:
+            raise RuntimeError("SENSOR_API_KEY_SOIL 환경변수가 설정되지 않았습니다")
+    else:
+        api_key = API_KEY_PLANT
+        if not api_key:
+            raise RuntimeError("SENSOR_API_KEY_PLANT 환경변수가 설정되지 않았습니다")
+
+    headers = {"X-API-Key": api_key}
 
     form_data = {
         "command": command.upper(),
@@ -355,7 +369,8 @@ def main():
     log(f"MQTT 브로커: {MQTT_BROKER}:{MQTT_PORT}")
     log(f"Farm ID: {FARM_ID}")
     log(f"Organization ID: {ORG_ID}")
-    log(f"API Key: {API_KEY[:15]}...")
+    log(f"토양 센서 API Key: {API_KEY_SOIL[:20] if API_KEY_SOIL else '(미설정)'}...")
+    log(f"식물 센서 API Key: {API_KEY_PLANT[:20] if API_KEY_PLANT else '(미설정)'}...")
     log("")
 
     # 서버에서 현재 수집 스케줄 가져오기
