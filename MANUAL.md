@@ -5,6 +5,7 @@
 ---
 
 ## 목차
+
 1. [시스템 요구사항](#시스템-요구사항)
 2. [빠른 설치 (5분)](#빠른-설치-5분)
 3. [상세 설치 가이드](#상세-설치-가이드)
@@ -19,6 +20,7 @@
 ## 시스템 요구사항
 
 ### 하드웨어
+
 - 미니PC (Windows 10/11)
 - ESP32C3 마이크로컨트롤러
 - **토양 센서** (USB 시리얼, VID:PID = 1A86:7523, 9600 baud)
@@ -26,10 +28,12 @@
 - USB 카메라 (토양 센서 이미지 촬영용)
 
 ### 소프트웨어
+
 - Python 3.8 이상
 - Git (코드 다운로드용)
 
 ### 데이터 흐름
+
 ```
 [토양센서] --A명령--> [ESP32C3] --USB--> [미니PC] --HTTP--> [SaaS 서버]
 [식물센서] --B명령-->                        |                    |
@@ -39,16 +43,17 @@
 
 ### 센서 정보
 
-| 센서 | 명령어 | Baud Rate | API 키 | 데이터 |
-|------|--------|-----------|--------|--------|
-| 토양 센서 | A | 9600 | SENSOR_API_KEY_SOIL | temp, humidity, ec, ph, salt, n, p, k + 이미지 |
-| 식물 센서 | B | 9600 | SENSOR_API_KEY_PLANT | temp, humidity, ch2o, tvoc, pm25, pm10, co2 |
+| 센서      | 명령어 | Baud Rate | API 키               | 데이터                                         |
+| --------- | ------ | --------- | -------------------- | ---------------------------------------------- |
+| 토양 센서 | A      | 9600      | SENSOR_API_KEY_SOIL  | temp, humidity, ec, ph, salt, n, p, k + 이미지 |
+| 식물 센서 | B      | 9600      | SENSOR_API_KEY_PLANT | temp, humidity, ch2o, tvoc, pm25, pm10, co2    |
 
 ---
 
 ## 빠른 설치 (5분)
 
 ### 1단계: 코드 다운로드
+
 ```batch
 cd %USERPROFILE%
 git clone <repository-url> test_sensor_module
@@ -56,17 +61,21 @@ cd test_sensor_module
 ```
 
 ### 2단계: 설치 실행
+
 ```batch
 install.bat
 ```
 
 ### 3단계: 환경변수 설정
+
 `.env` 파일을 메모장으로 열어 수정:
+
 ```batch
 notepad .env
 ```
 
 **필수 설정값:**
+
 ```ini
 # 농장 ID
 FARM_ID=발급받은-농장-ID
@@ -82,18 +91,22 @@ ORG_ID=조직-ID
 ```
 
 ### 4단계: 절전 모드 비활성화
+
 ```batch
 disable_sleep.bat  (우클릭 → 관리자 권한으로 실행)
 ```
 
 ### 5단계: 테스트 실행
+
 ```batch
 py main.py
 ```
+
 - `A` 입력: 토양 센서 테스트
 - `B` 입력: 식물 센서 테스트
 
 ### 6단계: 백그라운드 서비스 등록
+
 [백그라운드 서비스 설정](#백그라운드-서비스-설정) 참고
 
 ---
@@ -101,6 +114,7 @@ py main.py
 ## 상세 설치 가이드
 
 ### Python 설치 (없는 경우)
+
 1. https://www.python.org/downloads/ 접속
 2. Python 3.11 이상 다운로드
 3. 설치 시 **"Add Python to PATH"** 체크 필수
@@ -110,6 +124,7 @@ py main.py
    ```
 
 ### Git 설치 (없는 경우)
+
 1. https://git-scm.com/download/win 접속
 2. 다운로드 및 설치
 3. 설치 확인:
@@ -118,7 +133,9 @@ py main.py
    ```
 
 ### 의존성 수동 설치
+
 `install.bat`이 실패한 경우:
+
 ```batch
 py -m pip install opencv-python pyserial requests paho-mqtt python-dotenv
 ```
@@ -128,22 +145,22 @@ py -m pip install opencv-python pyserial requests paho-mqtt python-dotenv
 ## 실행 방법
 
 ### 수동 실행 (테스트/디버깅)
+
 ```batch
 cd %USERPROFILE%\test_sensor_module
 py main.py
 ```
 
-명령어:
-| 입력 | 동작 |
-|------|------|
-| `A` | 토양 센서 데이터 수집 + 이미지 + 서버 업로드 (AI 분석) |
-| `B` | 식물 센서 데이터 수집 + 서버 업로드 |
-| `Ctrl+C` | 종료 |
+명령어: | 입력 | 동작 | |------|------| | `A` | 토양 센서 데이터 수집 + 이미지 +
+서버 업로드 (AI 분석) | | `B` | 식물 센서 데이터 수집 + 서버 업로드 | | `Ctrl+C`
+| 종료 |
 
 ### MQTT 기반 실행 (권장)
+
 ```batch
 py main_mqtt.py
 ```
+
 - 서버에서 설정한 스케줄에 따라 자동 수집
 - MQTT로 서버에서 수집 명령 수신 가능
 - 수집 간격/시간대 변경 시 자동 적용
@@ -152,22 +169,26 @@ py main_mqtt.py
 
 ## 백그라운드 서비스 설정
 
-컴퓨터가 켜져있는 동안 자동으로 센서 데이터를 수집하려면 Windows 서비스로 등록합니다.
+컴퓨터가 켜져있는 동안 자동으로 센서 데이터를 수집하려면 Windows 서비스로
+등록합니다.
 
 ### 방법 1: NSSM 서비스 (권장)
 
 #### 1. NSSM 다운로드
+
 1. https://nssm.cc/download 접속
 2. `nssm-2.24.zip` 다운로드
 3. 압축 해제
 4. `win64\nssm.exe`를 `test_sensor_module` 폴더에 복사
 
 #### 2. 서비스 설치
+
 ```batch
 install_service.bat  (우클릭 → 관리자 권한으로 실행)
 ```
 
 #### 3. 서비스 관리
+
 ```batch
 :: 상태 확인
 nssm status SensorModule
@@ -194,6 +215,7 @@ uninstall_service.bat  (관리자 권한)
 ```batch
 add_to_startup.bat
 ```
+
 - Windows 시작 시 자동 실행
 - 백그라운드 창으로 실행됨
 
@@ -202,12 +224,18 @@ add_to_startup.bat
 ```batch
 start_background.bat
 ```
+
 - 최소화된 창으로 실행
 - 작업 관리자에서 python 프로세스 종료로 중지
 
 ---
 
 ## 설정 변경
+
+### COM 포트 변경
+
+- 토양 센서 연결: COM3
+- 환경 센서 연결: COM4
 
 ### 환경변수 (.env 파일)
 
@@ -216,7 +244,7 @@ start_background.bat
 # 필수 설정
 # ========================================
 
-# 농장 ID (관리자 페이지에서 확인)
+# 농장 ID (농가 페이지에서 확인)
 FARM_ID=your-farm-id-here
 
 # 토양 센서 API 키 (A 명령 - 토양 데이터 + 이미지 업로드)
@@ -260,17 +288,21 @@ BAUD_ENV = 9600
 ### 센서 연결 안 될 때
 
 #### 1단계: USB 연결 확인
+
 장치 관리자에서 COM 포트 확인:
+
 1. `Win + X` → 장치 관리자
 2. "포트 (COM & LPT)" 확장
 3. 센서 포트 확인 (예: COM4, COM5)
 
 #### 2단계: 포트 인식 확인
+
 ```batch
 py port_list.py
 ```
 
 정상 출력:
+
 ```
 [1] COM4
     VID:PID: 1A86:7523  # 토양 센서
@@ -279,36 +311,46 @@ py port_list.py
 ```
 
 #### 3단계: 드라이버 설치
+
 CH340/CH341 드라이버 필요 시:
+
 - https://www.wch.cn/download/CH341SER_EXE.html
 
 #### 4단계: VID:PID가 다른 경우
+
 `serial_client.py` 수정:
+
 ```python
 SOIL_SENSOR_VID_PID = (0x1A86, 0x7523)  # 토양 센서
 ENV_SENSOR_VID_PID = (0x303A, 0x1001)   # 식물 센서
 ```
 
 ### 센서 응답 없음
+
 ```batch
 py test_ports.py
 ```
+
 - 각 COM 포트별로 9600, 115200 baud rate 테스트
 - 응답 오는 포트/baud rate 조합 확인
 
 ### API 키 오류
+
 ```
 SENSOR_API_KEY_SOIL 환경변수가 설정되지 않았습니다
 SENSOR_API_KEY_PLANT 환경변수가 설정되지 않았습니다
 ```
+
 → `.env` 파일에 API 키가 올바르게 설정되었는지 확인
 
 ### Python 모듈 에러
+
 ```batch
 py -m pip install --upgrade opencv-python pyserial requests paho-mqtt python-dotenv
 ```
 
 ### 서비스 로그 확인
+
 ```batch
 :: NSSM 서비스 로그
 type logs\service.log
@@ -319,6 +361,7 @@ type sensor_log.txt
 ```
 
 ### 절전 모드로 멈춤
+
 ```batch
 disable_sleep.bat  (관리자 권한)
 ```
@@ -367,13 +410,16 @@ test_sensor_module/
 ## MQTT 기능
 
 ### 서버에서 수신하는 명령
+
 - `collect_soil`: 토양 센서 데이터 수집
 - `collect_env`: 식물 센서 데이터 수집
 - `collect_all`: 전체 센서 데이터 수집
 - `status`: 현재 상태 보고
 
 ### 스케줄 자동 변경
+
 서버에서 수집 스케줄 변경 시 MQTT로 알림 수신:
+
 - 토픽: `organization/{ORG_ID}/settings/schedule`
 - 수집 시간대, 간격 자동 업데이트
 
@@ -382,6 +428,7 @@ test_sensor_module/
 ## 지원
 
 문제 발생 시 로그 파일과 함께 문의:
+
 ```batch
 type logs\service.log > debug_log.txt
 type logs\error.log >> debug_log.txt
